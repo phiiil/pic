@@ -101,11 +101,11 @@ export function createProject(input: ProjectInput): Project {
 
   // Create default steps for the project
   const defaultSteps = [
-    { name: 'recherche', order_index: 1 },
-    { name: 'verification', order_index: 2 },
-    { name: 'correction', order_index: 3 },
-    { name: 'collation', order_index: 4 },
-    { name: 'final', order_index: 5 },
+    { name: 'ADN', order_index: 1 },
+    { name: 'Database', order_index: 2 },
+    { name: 'Market', order_index: 3 },
+    { name: 'Client', order_index: 4 },
+    { name: 'Deliverables', order_index: 5 },
   ]
 
   const stepStmt = db.prepare(`
