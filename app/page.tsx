@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import ResultCard from './components/ResultCard'
 import ProjectSidebar from './components/ProjectSidebar'
+import ProjectResultsList from './components/ProjectResultsList'
 
 interface EngineResult {
   result: string | null
@@ -27,6 +28,7 @@ export default function Dashboard() {
     Anthropic: { result: null, isLoading: false, error: null },
     Google: { result: null, isLoading: false, error: null },
   })
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     if (selectedProjectId) {
@@ -74,7 +76,7 @@ export default function Dashboard() {
       { name: 'Google', endpoint: '/api/google' },
     ]
 
-    engines.forEach(async ({ name, endpoint }) => {
+    const promises = engines.map(async ({ name, endpoint }) => {
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -95,7 +97,7 @@ export default function Dashboard() {
               error: data.error || 'Unknown error occurred',
             },
           }))
-          return
+          return false
         }
 
         setResults((prev) => ({
@@ -106,6 +108,7 @@ export default function Dashboard() {
             error: null,
           },
         }))
+        return true
       } catch (error: any) {
         setResults((prev) => ({
           ...prev,
@@ -115,7 +118,15 @@ export default function Dashboard() {
             error: error.message || 'Failed to fetch response',
           },
         }))
+        return false
       }
+    })
+
+    // Wait for all requests to complete, then refresh the results list
+    Promise.all(promises).then(() => {
+      // Clear the prompt and refresh the results list
+      setPrompt('')
+      setRefreshKey((prev) => prev + 1)
     })
   }
 
@@ -124,6 +135,7 @@ export default function Dashboard() {
       <ProjectSidebar
         selectedProjectId={selectedProjectId}
         onProjectSelect={setSelectedProjectId}
+        refreshTrigger={refreshKey}
       />
       <main className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
@@ -165,7 +177,7 @@ export default function Dashboard() {
             </div>
           </form>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <ResultCard
               engine="OpenAI"
               result={results.OpenAI.result}
@@ -185,6 +197,8 @@ export default function Dashboard() {
               error={results.Google.error}
             />
           </div>
+
+          <ProjectResultsList key={refreshKey} projectId={selectedProjectId} />
         </div>
       </main>
     </div>

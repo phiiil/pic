@@ -14,11 +14,13 @@ interface Project {
 interface ProjectSidebarProps {
   selectedProjectId: number | null
   onProjectSelect: (projectId: number) => void
+  refreshTrigger?: number
 }
 
 export default function ProjectSidebar({
   selectedProjectId,
   onProjectSelect,
+  refreshTrigger,
 }: ProjectSidebarProps) {
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -29,7 +31,15 @@ export default function ProjectSidebar({
 
   useEffect(() => {
     loadProjects()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (refreshTrigger !== undefined && refreshTrigger > 0) {
+      loadProjects()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger])
 
   const loadProjects = async () => {
     try {
