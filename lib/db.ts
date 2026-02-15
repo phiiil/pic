@@ -24,25 +24,35 @@ db.exec(`
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE TABLE IF NOT EXISTS ai_results (
+  CREATE TABLE IF NOT EXISTS steps (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    order_index INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    step_id INTEGER NOT NULL,
     prompt TEXT NOT NULL,
     engine TEXT NOT NULL,
     response TEXT NOT NULL,
     metadata TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    FOREIGN KEY (step_id) REFERENCES steps(id) ON DELETE CASCADE
   );
 
-  CREATE INDEX IF NOT EXISTS idx_project_id ON ai_results(project_id);
+  CREATE INDEX IF NOT EXISTS idx_steps_project_id ON steps(project_id);
+  CREATE INDEX IF NOT EXISTS idx_step_id ON ai_results(step_id);
   CREATE INDEX IF NOT EXISTS idx_engine ON ai_results(engine);
   CREATE INDEX IF NOT EXISTS idx_created_at ON ai_results(created_at);
 `)
 
 export interface AIResult {
   id: number
-  project_id: number
+  step_id: number
   prompt: string
   engine: string
   response: string
@@ -64,11 +74,19 @@ export interface ProjectInput {
 }
 
 export interface AIResultInput {
-  project_id: number
+  step_id: number
   prompt: string
   engine: string
   response: string
   metadata?: Record<string, any>
+}
+
+export interface Step {
+  id: number
+  project_id: number
+  name: string
+  order_index: number
+  created_at: string
 }
 
 // Project functions
@@ -79,7 +97,27 @@ export function createProject(input: ProjectInput): Project {
   `)
 
   const result = stmt.run(input.name, input.description || null)
-  return getProjectById(result.lastInsertRowid as number)
+  const projectId = result.lastInsertRowid as number
+
+  // Create default steps for the project
+  const defaultSteps = [
+    { name: 'recherche', order_index: 1 },
+    { name: 'verification', order_index: 2 },
+    { name: 'correction', order_index: 3 },
+    { name: 'collation', order_index: 4 },
+    { name: 'final', order_index: 5 },
+  ]
+
+  const stepStmt = db.prepare(`
+    INSERT INTO steps (project_id, name, order_index)
+    VALUES (?, ?, ?)
+  `)
+
+  for (const step of defaultSteps) {
+    stepStmt.run(projectId, step.name, step.order_index)
+  }
+
+  return getProjectById(projectId)
 }
 
 export function getProjectById(id: number): Project {
@@ -92,9 +130,14 @@ export function getAllProjects(): Project[] {
   return stmt.all() as Project[]
 }
 
-// Get count of results for a project
+// Get count of results for a project (through steps)
 export function getResultCountForProject(projectId: number): number {
-  const stmt = db.prepare('SELECT COUNT(*) as count FROM ai_results WHERE project_id = ?')
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count 
+    FROM ai_results ar
+    INNER JOIN steps s ON ar.step_id = s.id
+    WHERE s.project_id = ?
+  `)
   const result = stmt.get(projectId) as { count: number }
   return result.count
 }
@@ -133,17 +176,34 @@ export function deleteProject(id: number): void {
   stmt.run(id)
 }
 
+// Step functions
+export function getStepsByProjectId(projectId: number): Step[] {
+  const stmt = db.prepare(`
+    SELECT * FROM steps 
+    WHERE project_id = ? 
+    ORDER BY order_index ASC
+  `)
+  return stmt.all(projectId) as Step[]
+}
+
+// Get count of results for a step
+export function getResultCountForStep(stepId: number): number {
+  const stmt = db.prepare('SELECT COUNT(*) as count FROM ai_results WHERE step_id = ?')
+  const result = stmt.get(stepId) as { count: number }
+  return result.count
+}
+
 // Insert a new result
 export function insertResult(input: AIResultInput): AIResult {
   const stmt = db.prepare(`
-    INSERT INTO ai_results (project_id, prompt, engine, response, metadata)
+    INSERT INTO ai_results (step_id, prompt, engine, response, metadata)
     VALUES (?, ?, ?, ?, ?)
   `)
 
   const metadataJson = input.metadata ? JSON.stringify(input.metadata) : null
 
   const result = stmt.run(
-    input.project_id,
+    input.step_id,
     input.prompt,
     input.engine,
     input.response,
@@ -162,21 +222,28 @@ export function getResultById(id: number): AIResult {
 // Get all results (with optional filters)
 export function getResults(options?: {
   project_id?: number
+  step_id?: number
   engine?: string
   limit?: number
   offset?: number
 }): AIResult[] {
-  let query = 'SELECT * FROM ai_results'
+  let query = 'SELECT ar.* FROM ai_results ar'
   const conditions: string[] = []
   const params: any[] = []
 
   if (options?.project_id) {
-    conditions.push('project_id = ?')
+    query += ' INNER JOIN steps s ON ar.step_id = s.id'
+    conditions.push('s.project_id = ?')
     params.push(options.project_id)
   }
 
+  if (options?.step_id) {
+    conditions.push('ar.step_id = ?')
+    params.push(options.step_id)
+  }
+
   if (options?.engine) {
-    conditions.push('engine = ?')
+    conditions.push('ar.engine = ?')
     params.push(options.engine)
   }
 
@@ -184,7 +251,7 @@ export function getResults(options?: {
     query += ' WHERE ' + conditions.join(' AND ')
   }
 
-  query += ' ORDER BY created_at DESC'
+  query += ' ORDER BY ar.created_at DESC'
 
   if (options?.limit) {
     query += ' LIMIT ?'

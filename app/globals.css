@@ -17,16 +17,15 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #0f172a;
   min-height: 100vh;
 }
 
 body {
-  color: #333;
+  color: #e2e8f0;
 }
 
 a {
   color: inherit;
   text-decoration: none;
 }
-

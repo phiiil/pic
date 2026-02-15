@@ -7,16 +7,19 @@ export async function GET(request: NextRequest) {
     const project_id = searchParams.get('project_id')
       ? parseInt(searchParams.get('project_id')!)
       : undefined
+    const step_id = searchParams.get('step_id')
+      ? parseInt(searchParams.get('step_id')!)
+      : undefined
     const engine = searchParams.get('engine') || undefined
-    const limit = searchParams.get('limit') 
-      ? parseInt(searchParams.get('limit')!) 
+    const limit = searchParams.get('limit')
+      ? parseInt(searchParams.get('limit')!)
       : undefined
     const offset = searchParams.get('offset')
       ? parseInt(searchParams.get('offset')!)
       : undefined
 
-    const results = getResults({ project_id, engine, limit, offset })
-    
+    const results = getResults({ project_id, step_id, engine, limit, offset })
+
     return NextResponse.json({ results })
   } catch (error: any) {
     console.error('Error fetching results:', error)

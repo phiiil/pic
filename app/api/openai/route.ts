@@ -4,9 +4,9 @@ import { insertResult } from '@/lib/db'
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
-    const { prompt, project_id } = await request.json()
+    const { prompt, step_id } = await request.json()
 
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json(
@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!project_id || typeof project_id !== 'number') {
+    if (!step_id || typeof step_id !== 'number') {
       return NextResponse.json(
-        { error: 'Project ID is required' },
+        { error: 'Step ID is required' },
         { status: 400 }
       )
     }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     // Save to database
     try {
       insertResult({
-        project_id,
+        step_id,
         prompt,
         engine: 'OpenAI',
         response,

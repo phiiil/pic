@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createProject, getAllProjects, getResultCountForProject } from '@/lib/db'
+import { createProject, getAllProjects } from '@/lib/db'
 
 export async function GET() {
   try {
     const projects = getAllProjects()
-    // Add result count to each project
-    const projectsWithCounts = projects.map(project => ({
-      ...project,
-      resultCount: getResultCountForProject(project.id)
-    }))
-    return NextResponse.json({ projects: projectsWithCounts })
+    return NextResponse.json({ projects })
   } catch (error: any) {
     console.error('Error fetching projects:', error)
     return NextResponse.json(
